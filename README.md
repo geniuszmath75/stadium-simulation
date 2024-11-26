@@ -1,7 +1,7 @@
 
 # Temat 11 - Stadion
 
-## Opis projektu: 
+## 1. Opis projektu: 
 
 Na stadionie piłkarskim rozegrany ma zostać mecz finałowy Ligi Mistrzów. Z uwagi na rangę imprezy ustalono następujące rygorystyczne zasady bezpieczeństwa.
 * Na stadionie może przebywać maksymalnie K kibiców.
@@ -14,3 +14,11 @@ Na stadionie piłkarskim rozegrany ma zostać mecz finałowy Ligi Mistrzów. Z u
 
 Po wydaniu przez kierownika polecenia (sygnał1) pracownik techniczny wstrzymuje wpuszczanie kibiców. Po wydaniu przez kierownika polecenia (sygnał2) pracownik techniczny wznawia wpuszczanie kibiców. Po wydaniu przez kierownika polecenia (sygnał3) wszyscy kibice opuszczają stadion – w momencie gdy wszyscy kibice opuścili stadion, pracownik techniczny wysyła informację do kierownika.
 Napisz odpowiedni program kibica, pracownika technicznego i kierownika stadionu.. Wszelkie mechanizmy synchronizacyjne są inicjowane na początku przez pracownika technicznego (osobny program).
+
+## 2. Opis testów:
+
+* **Test_1** - sprawdzenie, czy program odrzuca nadmiar kibiców (Liczba kibiców <= K).
+* **Test_2** - symulacja sytuacji, gdy stanowiska przestają działać (test semaforów).
+* **Test_3** - sprawdzenie poprawności odbioru poleceń od kierownika przez pracownika technicznego (obsługa sygnałów).
+* **Test_4** - sprawdzenie, czy osoby VIP są wpuszczane bez kolejki, a dzieci z opiekunami.
+* **Test_5** - sprawdzenie, czy kibic czekający w kolejce przepuści max. 5 osób
