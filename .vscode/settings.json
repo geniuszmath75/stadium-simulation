@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "structures.h": "c",
+        "ipc.h": "c",
+        "types.h": "c",
+        "stdlib.h": "c",
+        "stdio.h": "c",
+        "semaphore.h": "c",
+        "sem.h": "c",
+        "ipc_utils.h": "c",
+        "tech_worker.h": "c",
+        "worker.h": "c"
+    }
+}

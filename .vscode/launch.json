@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Run program",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${cwd}/src/tech_worker && ${cwd}/src/fan && ${cwd}/src/stadium_manager",
+            "args": ["&"],
+            "stopAtEntry": false,
+            "cwd": "${cwd}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build program"
+        },
+    ],
+    "version": "2.0.0"
+}
