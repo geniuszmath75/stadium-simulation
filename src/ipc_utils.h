@@ -24,6 +24,7 @@ void remove_shared_memory(int shmid);
 
 // Funkcje semaforów
 int create_semaphore(key_t key, int initial_value, int flags);
+int get_semaphore(key_t key, int flags);
 void semaphore_wait(int semid);
 void semaphore_signal(int semid);
 void remove_semaphore(int semid);

@@ -10,6 +10,9 @@
         "sem.h": "c",
         "ipc_utils.h": "c",
         "tech_worker.h": "c",
-        "worker.h": "c"
+        "worker.h": "c",
+        "fan.h": "c",
+        "manager.h": "c",
+        "select.h": "c"
     }
 }
