@@ -53,7 +53,7 @@ int main()
     // Uruchomienie kierownika
     if ((manager_pid = fork()) == 0)
     {
-        printf(MANAGER "[MANAGER] Uruchamianie kierownika" RESET "\n");
+        printf(MANAGER "[MANAGER] Uruchamianie kierownika \n" RESET);
         run_manager(worker_main_pid);
         exit(0);
     }
@@ -63,7 +63,7 @@ int main()
     { // Liczba kibiców
         if ((fan_pid = fork()) == 0)
         {
-            run_fan(i);
+            run_fan(i+1);
             exit(0);
         }
         sleep(1);

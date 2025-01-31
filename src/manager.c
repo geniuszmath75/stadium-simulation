@@ -1,6 +1,5 @@
 #include <signal.h>
 #include <fcntl.h>
-#include <sys/select.h>
 #include "manager.h"
 #include "ipc_utils.h"
 #include "structures.h"
@@ -13,52 +12,46 @@ void send_signal_to_workers(int signal, pid_t main_tech_id)
 
 void run_manager(pid_t main_tech_id)
 {
+    srandom(getpid());
     // Klucze IPC
     key_t key_shm = get_key(KEY_PATH, SHM_ID);
     key_t key_msg_manager = get_key(KEY_PATH, MSG_MANAGER_ID);
 
     // Pamięc dzielona
-    int shmid = create_shared_memory(key_shm, sizeof(SharedData), 0);
+    int shmid = create_shared_memory(key_shm, sizeof(SharedData), 0666);
     SharedData *data = (SharedData *)attach_shared_memory(shmid);
 
     // Kolejka komunikatów do kierownika
-    int msgid_manager = create_message_queue(key_msg_manager, 0);
+    int msgid_manager = create_message_queue(key_msg_manager, 0666);
 
     printf(MANAGER "[MANAGER] Kierownik uruchomiony.\n" RESET);
 
+    // Czas oczekiwania na wysłanie sygnału
+    int wait_for_signal = rand() % MAX_FANS + 1;
+
+    // Losowo wybrany sygnał: 0 - ewakuacja, 1 - wtrzymanie/wznowienie kontroli
+    int signal_type = random() % 2;
     while (1)
     {
-        sleep(5);
-        send_signal_to_workers(SIGTERM, main_tech_id);
-        // Odczytywanie znaku z wejścia standardowego
-        char command = getchar();
-
-        // Wydawanie sygnałów na podstawie wprowadzonego znaku
-        if (command == 'p')
-        {
-            if (data->entry_paused)
-            {
-                send_signal_to_workers(SIGUSR2, main_tech_id);
-                printf(MANAGER "[MANAGER] Wstrzymać kibiców!\n" RESET);
-            }
-            else
-            {
-                send_signal_to_workers(SIGUSR1, main_tech_id);
-                printf(MANAGER "[MANAGER] Ponownie wpuszczać kibiców!\n" RESET);
-            }
-        }
-        else if (command == 'q')
-        {
+        sleep(wait_for_signal);
+        if (signal_type == 0)
             send_signal_to_workers(SIGTERM, main_tech_id);
-            printf(MANAGER "[MANAGER] Rozpoczęto ewakuację\n" RESET);
+        else
+        {
+            send_signal_to_workers(SIGUSR1, main_tech_id);
+            sleep(5); // Wstrzymanie kontroli na 5s
+            send_signal_to_workers(SIGUSR2, main_tech_id);
         }
 
-        // Odbieranie komunikatu od pracownika technicznego
-        QueueMessage msg;
-        if (msgrcv(msgid_manager, &msg, sizeof(QueueMessage) - sizeof(long), EVACUATION_COMPLETE, 0) != -1)
+        if (signal_type == 0)
         {
-            printf(MANAGER "[MANAGER] Otrzymano komunikat o zakończeniu ewakuacji\n" RESET);
-            break;
+            // Odbieranie komunikatu od pracownika technicznego
+            QueueMessage msg;
+            if (msgrcv(msgid_manager, &msg, sizeof(QueueMessage) - sizeof(long), EVACUATION_COMPLETE, 0) != -1)
+            {
+                printf(MANAGER "[MANAGER] Otrzymano komunikat o zakończeniu ewakuacji\n" RESET);
+                break;
+            }
         }
 
         // Sprawdzanie, czy wszystkie procesy się zakończyły
@@ -68,7 +61,7 @@ void run_manager(pid_t main_tech_id)
             break;
         }
     }
-    
+
     // Odłączenie pamięci dzielonej
     detach_shared_memory(data);
     printf(MANAGER "[MANAGER] Kierownik zakończył działanie\n" RESET);

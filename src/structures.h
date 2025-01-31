@@ -2,9 +2,10 @@
 #define STRUCTURES_H
 
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/types.h>
 
-#define MAX_FANS 10
-#define MAX_QUEUE_SIZE 10
+#define MAX_FANS 100
 #define MAX_STANDS 3
 #define MAX_PEOPLE_PER_STAND 3
 #define VIP_THRESHOLD 0.005 // VIPs: < 0.5% of total fans
@@ -13,10 +14,11 @@
 #define KEY_PATH "/tmp"
 #define MSG_ID 'A'
 #define SHM_ID 'B'
-#define SEM_FAN_COUNT_ID 'C'
-#define SEM_STAND_BASE 'D'
+#define SEM_MAIN_TECH_ID 'C'
+#define SEM_FAN_COUNT_ID 'D'
 #define SEM_WAITING_FANS 'E'
 #define MSG_MANAGER_ID 'F'
+#define SEM_STAND_BASE 'G'
 
 // Kolory dla komunikatów w konsoli
 #define RESET "\033[0m"
@@ -33,44 +35,38 @@ typedef enum
     TEAM_B,
 } Team;
 
-// Rodzaje komunikatów stanowisk kontroli
+// Rodzaje komunikatów
 typedef enum
 {
-    INVITE_TO_CONTROL = 1,
-    EXIT_MANAGER = 6,
-    OTHER_TEAM = 7,
-    SAME_TEAM = 8,
-    VIP_ENTER = 9,
-    ENTER_WITH_CHILDREN = 10,
-    EVACUATION_COMPLETE = 11,
-} ControlMessageTypes;
-
-// Rodzaje komunkiatów kibica
-typedef enum
-{
-    JOIN_QUEUE = 1,
-    JOIN_CONTROL = 2,
-    AGGRESSIVE_FAN = 3,
-    JOIN_VIP = 4,
-    JOIN_WITH_CHILDREN = 5,
-} FanMessageTypes;
+    JOIN_CONTROL = 1,
+    OTHER_TEAM = 2,
+    LET_FAN_GO = 3,
+    AGGRESSIVE_FAN = 4,
+    JOIN_VIP = 5,
+    JOIN_WITH_CHILDREN = 6,
+    VIP_ENTER = 7,
+    ENTER_WITH_CHILDREN = 8,
+    EVACUATION_COMPLETE = 9,
+    HAVE_FUN = 10,
+} MessageTypes;
 
 // Dane kibica
 typedef struct
 {
-    long message_type; // Typ komunikatu dla kolejki
+    pid_t fan_pid;
     int fan_id;        // Unikalny identyfikator kibica
     Team team;         // Drużyna kibica
     int age;           // Wiek kibica
     bool is_vip;       // Czy jest VIP-em
     bool is_child;     // Czy jest dzieckiem
+    int aggressive_counter; // Czy jest agresywny
 } FanData;
 
 // Struktura komunikatu
 typedef struct
 {
     long message_type; // Typ komunikatu (do kolejek komunikatów)
-    int sender; // ID nadawcy
+    pid_t sender; // ID nadawcy
     FanData fData; // Informacje o kibicu
 } QueueMessage;
 

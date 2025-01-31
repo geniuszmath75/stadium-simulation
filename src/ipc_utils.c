@@ -79,6 +79,17 @@ void semaphore_signal(int semid)
     }
 }
 
+int get_sem_value(int semid)
+{
+    int semval = semctl(semid, 0, GETVAL);
+    if( semval == -1)
+    {
+        perror(ERROR "Nie można pobrać wartości semafora" RESET);
+        exit(1);
+    }
+    return semval;
+}
+
 void remove_semaphore(int semid) {
     if (semctl(semid, 0, IPC_RMID) == -1) {
         perror(ERROR "Nie można usunąć semafora");
