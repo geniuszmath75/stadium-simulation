@@ -42,13 +42,16 @@ void remove_shared_memory(int shmid) {
     }
 }
 
-int create_semaphore(key_t key, int initial_value, int flags) {
-    int semid = semget(key, 1, flags);
+int create_semaphore(key_t key, int sem_number, int initial_value, int flags) {
+    int semid = semget(key, sem_number, flags);
     if (semid == -1) {
         perror(ERROR "Nie można utworzyć lub otworzyć semafora");
         exit(1);
     }
-    semctl(semid, 0, SETVAL, initial_value);
+    for(int i = 0; i < sem_number; i++)
+    {
+        semctl(semid, i, SETVAL, initial_value);
+    }
     return semid;
 }
 
@@ -62,17 +65,17 @@ int get_semaphore(key_t key, int flags)
     return semid;
 }
 
-void semaphore_wait(int semid) {
-    struct sembuf op = {0, -1, 0};
+void semaphore_wait(int semid, int sem_number) {
+    struct sembuf op = {sem_number, -1, 0};
     if (semop(semid, &op, 1) == -1) {
         perror( ERROR "semop wait");
         exit(1);
     }
 }
 
-void semaphore_signal(int semid) 
+void semaphore_signal(int semid, int sem_number) 
 {
-    struct sembuf op = {0, 1, 0};
+    struct sembuf op = {sem_number, 1, 0};
     if (semop(semid, &op, 1) == -1) {
         perror(ERROR "semop signal");
         exit(1);
@@ -100,7 +103,8 @@ void remove_semaphore(int semid) {
 int create_message_queue(key_t key, int flags) {
     int msgid = msgget(key, flags);
     if (msgid == -1) {
-        perror(ERROR "Nie można utworzyć lub otworzyć kolejki komunikatów");
+        printf("ERRNO: %d\n", errno);
+        perror(ERROR "Nie można utworzyć lub otworzyć kolejki komunikatów" RESET);
         exit(1);
     }
     return msgid;

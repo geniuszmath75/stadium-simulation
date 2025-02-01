@@ -3,7 +3,7 @@
 #include "structures.h"
 #include <signal.h>
 
-void cleanup(SharedData *data, int msgid, int shmid, int msgid_manager, int sem_fan_count, int sem_main_tech, int *sem_stand, int sem_fans_waiting)
+void cleanup(SharedData *data, int msgid, int shmid, int msgid_manager, int sem_fan_count, int sem_evacuation, int sem_entry_paused, int sem_stands, int sem_fans_waiting)
 {
     printf(WORKER "[TECH_WORKER(Main)] Czyszczenie zasobów..." RESET "\n");
 
@@ -22,16 +22,17 @@ void cleanup(SharedData *data, int msgid, int shmid, int msgid_manager, int sem_
     // Semafor liczby kibiców na stadionie
     remove_semaphore(sem_fan_count);
 
-    remove_semaphore(sem_main_tech);
+    // Semafor flagi ewakuacji
+    remove_semaphore(sem_evacuation);
+
+    // Semafor flagi wstrzymania kontroli
+    remove_semaphore(sem_entry_paused);
 
     // Semafor liczby kibiców w kolejce
     remove_semaphore(sem_fans_waiting);
 
     // Semafory stanowisk kontorli
-    for (int i = 0; i < MAX_STANDS; i++)
-    {
-        remove_semaphore(sem_stand[i]);
-    }
+    remove_semaphore(sem_stands);
     printf(WORKER "[TECH_WORKER(Main)] Zasoby wyczyszczone" RESET "\n");
 }
 
@@ -39,7 +40,8 @@ void handle_signal(int signal)
 {
     // Klucze IPC
     key_t key_shm = get_key(KEY_PATH, SHM_ID);
-    key_t key_sem_tech = get_key(KEY_PATH, SEM_MAIN_TECH_ID);
+    key_t key_evacuation = get_key(KEY_PATH, SEM_EVACUATION_ID);
+    key_t key_entry_paused = get_key(KEY_PATH, SEM_ENTRY_PAUSED_ID);
 
     // Pamięć dzielona
     int shmid = create_shared_memory(key_shm, sizeof(SharedData), 0666);
@@ -47,31 +49,34 @@ void handle_signal(int signal)
     // Dołączenie pamięci dzielonej
     SharedData *data = (SharedData *)attach_shared_memory(shmid);
 
-    // Semafor liczby kibiców na stadionie
-    int sem_main_tech = get_semaphore(key_sem_tech, 0666);
+    // Semafor flagi ewakuacji
+    int sem_evacuation = get_semaphore(key_evacuation, 0666);
 
-    // Zablokowanie semafora
-    semaphore_wait(sem_main_tech);
+    // Semafor flagi wstrzymania kontroli
+    int sem_entry_paused = get_semaphore(key_entry_paused, 0666);
 
     // Wybór działania w zależności od sygnału
     switch (signal)
     {
     case SIGUSR1: // Wstrzymanie wpuszczania kibiców
+        semaphore_wait(sem_entry_paused, 0);
         data->entry_paused = true;
+        semaphore_signal(sem_entry_paused, 0);
         printf(WORKER "[TECH_WORKER(Main)] Wstrzymano wpuszczanie kibiców\n" RESET);
         break;
     case SIGUSR2: // Wznowienie wpuszczania kibiców
+        semaphore_wait(sem_entry_paused, 0);
         data->entry_paused = false;
+        semaphore_signal(sem_entry_paused, 0);
         printf(WORKER "[TECH_WORKER(Main)] Wznowiono wpuszczanie kibiców\n" RESET);
         break;
     case SIGTERM: // Rozpoczęcie ewakuacji
+        semaphore_signal(sem_evacuation, 0);
         data->evacuation = true;
+        semaphore_signal(sem_evacuation, 0);
         printf(WORKER "[TECH_WORKER(Main)] Rozpoczęto ewakuację\n" RESET);
         break;
     }
-
-    // Zwolnienie semafora
-    semaphore_signal(sem_main_tech);
 
     // Odłączenie pamięci dzielonej
     // detach_shared_memory(data);
@@ -80,27 +85,32 @@ void handle_signal(int signal)
 void evacuate_stadium(SharedData *data, int msgid_manager)
 {
     // Klucze IPC
-    key_t key_sem_tech = get_key(KEY_PATH, SEM_MAIN_TECH_ID);
+    key_t key_fan_count = get_key(KEY_PATH, SEM_FAN_COUNT_ID);
+    key_t key_evacuation = get_key(KEY_PATH, SEM_EVACUATION_ID);
 
     // Semafor liczby kibiców na stadionie
-    int sem_main_tech = get_semaphore(key_sem_tech, 0666);
+    int sem_fan_count = get_semaphore(key_fan_count, 0666);
+
+    // Semafor flagi ewakuacji
+    int sem_evacuation = get_semaphore(key_evacuation, 0666);
 
     // Przeprowadzamy ewakuację do momentu opuszczenia stadionu przez ostatniego kibica
     while (1)
     {
         // Zablokowanie semafora
-        semaphore_wait(sem_main_tech);
-        sleep(1);
+        // sleep(1);
         if (data->fans_in_stadium > 0) // Jeśli są jacyś kibice na stadionie...
         {
+            semaphore_wait(sem_fan_count, 0);
             data->fans_in_stadium--;                                                                             // ...zmniejsz liczbę kibiców o jeden...
             printf(WORKER "[TECH_WORKER(Main)] Ewakuacja: pozostało %d kibiców\n" RESET, data->fans_in_stadium); // ...wyświetl liczbę kibiców na stadionie...
-            semaphore_signal(sem_main_tech);                                                                     // ...zwolnij semafor
+            semaphore_signal(sem_fan_count, 0);                                                                     // ...zwolnij semafor
         }
         else // Jeśli wszyscy kibice zostali ewakuowani...
         {
-            data->evacuation = false;        // ...zakończ ewakuację...
-            semaphore_signal(sem_main_tech); // ...i zwolnij semafor
+            //semaphore_wait(sem_evacuation, 0);
+            //data->evacuation = false;        // ...zakończ ewakuację...
+            //semaphore_signal(sem_evacuation, 0); // ...i zwolnij semafor
             break;
         }
     }
@@ -116,6 +126,11 @@ void evacuate_stadium(SharedData *data, int msgid_manager)
         exit(1);
     }
     printf(WORKER "[TECH_WORKER(Main)] Ewakuacja zakończona\n" RESET);
+
+    if(msgrcv(msgid_manager, &msg, sizeof(QueueMessage) - sizeof(long), FINISH_WORKER, 0) != -1)
+    {
+        return;
+    }
 }
 
 void run_worker_main()
@@ -123,11 +138,12 @@ void run_worker_main()
     // Klucze IPC
     key_t key_shm = get_key(KEY_PATH, SHM_ID);
     key_t key_msg = get_key(KEY_PATH, MSG_ID);
-    key_t key_sem_tech = get_key(KEY_PATH, SEM_MAIN_TECH_ID);
+    key_t key_evacuation = get_key(KEY_PATH, SEM_EVACUATION_ID);
     key_t key_fan_count = get_key(KEY_PATH, SEM_FAN_COUNT_ID);
-    key_t key_msg_manager = get_key(KEY_PATH, MSG_MANAGER_ID);
-
+    key_t key_entry_paused = get_key(KEY_PATH, SEM_ENTRY_PAUSED_ID);
     key_t key_sem_waiting_fans = get_key(KEY_PATH, SEM_WAITING_FANS);
+    key_t key_msg_manager = get_key(KEY_PATH, MSG_MANAGER_ID);
+    key_t key_sem_stand = get_key(KEY_PATH, SEM_STAND_BASE);
 
     // Pamięć dzielona
     int shmid = create_shared_memory(key_shm, sizeof(SharedData), IPC_CREAT | IPC_EXCL | 0666);
@@ -140,33 +156,42 @@ void run_worker_main()
     int msgid_manager = create_message_queue(key_msg_manager, IPC_CREAT | IPC_EXCL | 0666);
 
     // Inicjalizacja semafora liczby kibiców na stadionie
-    int sem_fan_count = create_semaphore(key_fan_count, 1, IPC_CREAT | IPC_EXCL | 0666);
+    int sem_fan_count = create_semaphore(key_fan_count, 1, 1, IPC_CREAT | IPC_EXCL | 0666);
 
-    int sem_main_tech = create_semaphore(key_sem_tech, 1, IPC_CREAT | IPC_EXCL | 0666);
+    // Semafor flagi ewakuacji
+    int sem_evacuation = create_semaphore(key_evacuation, 1, 1, IPC_CREAT | IPC_EXCL | 0666);
+
+    // Semafor flagi wstrzymania kontroli
+    int sem_entry_paused = create_semaphore(key_entry_paused, 1, 1, IPC_CREAT | IPC_EXCL | 0666);
 
     // Inicjalizacja semafora liczby kibiców w kolejce
-    int sem_fans_waiting = create_semaphore(key_sem_waiting_fans, 0, IPC_CREAT | IPC_EXCL | 0666);
+    int sem_fans_waiting = create_semaphore(key_sem_waiting_fans, 1, MAX_FANS, IPC_CREAT | IPC_EXCL | 0666);
 
     // Inicjalizacja semaforów stanowisk kontroli
-    int sem_stand[MAX_STANDS];
-    for (int i = 0; i < MAX_STANDS; i++)
+    int sem_stands = create_semaphore(key_sem_stand, 3, 1, IPC_CREAT | IPC_EXCL | 0666);
+    for (int i = 1; i <= MAX_STANDS; i++)
     {
-        // Klucz semafora
-        key_t key_sem_stand = get_key(KEY_PATH, SEM_STAND_BASE + i);
-        // Inicjalizacja semafora
-        sem_stand[i] = create_semaphore(key_sem_stand, MAX_PEOPLE_PER_STAND, IPC_CREAT | IPC_EXCL | 0666);
-
         // Ustawienie liczby kibiców w stanowisku kontroli
-        data->fans_on_stand[i] = 0;
-        data->fans_on_stand[i] = 0;
-        data->fans_on_stand[i] = 0;
+        semaphore_wait(sem_stands, i-1);
+        data->fans_on_stand[i - 1] = 0;
+        data->fans_on_stand[i - 1] = 0;
+        data->fans_on_stand[i - 1] = 0;
+        semaphore_signal(sem_stands, i-1);
     }
 
     // Ustawienie liczby kibiców na stadionie oraz flag wstrzymywania
     // wpuszczania kibiców i ewakuacji
+    semaphore_wait(sem_fan_count, 0);
     data->fans_in_stadium = 0;
+    semaphore_signal(sem_fan_count, 0);
+
+    semaphore_wait(sem_entry_paused, 0);
     data->entry_paused = false;
+    semaphore_signal(sem_entry_paused, 0);
+
+    semaphore_wait(sem_evacuation, 0);
     data->evacuation = false;
+    semaphore_signal(sem_evacuation, 0);
 
     printf(WORKER "[TECH_WORKER(Main)] Główny pracownik techniczny uruchomiony" RESET "\n");
 
@@ -180,23 +205,17 @@ void run_worker_main()
     // Czekanie na sygnały lub maksymalną liczbę kibiców
     while (1)
     {
-        // Zablokowanie semafora liczby kibiców
-        semaphore_wait(sem_main_tech);
-
         // Jeśli flaga ewakuacji jest ustawiona na true...
         if (data->evacuation)
         {
-            // Zwolnij semafor liczby kibiców
-            semaphore_signal(sem_main_tech);
             // Przeprowadź ewakucję
             evacuate_stadium(data, msgid_manager);
             break;
         }
 
-        printf(WORKER "Liczba kibiców na stanowiskach[1]-%d,[2]-%d,[3]-%d\n" RESET, data->fans_on_stand[0], data->fans_on_stand[1], data->fans_on_stand[2]);
         // Jeśli liczba kibiców osiągnęła maksymalną liczbę, nie ma ewakuacji
         // oraz wstrzymania wpuszczania kibiców
-        if (data->fans_in_stadium >= MAX_FANS && data->evacuation == false && data->entry_paused == false)
+        if (data->fans_in_stadium >= MAX_FANS || data->evacuation == true && data->entry_paused == false)
         {
             // Sprawdzamy czy wszystkie stanowiska kontroli skończyły pracę
             bool all_stands_empty = true;
@@ -212,18 +231,15 @@ void run_worker_main()
             // W przeciwnym wypadku...
             if (all_stands_empty)
             {
-                semaphore_signal(sem_main_tech); // ...zwalniamy semafor liczby kibiców...
                 printf(WORKER "[TECH_WORKER(Main)] Stadion pełny i wszystkie stanowiska są puste. Kończymy pracę." RESET "\n");
                 break; //...i kończymy pracę pracownika technicznego(main)
             }
         }
-        // Zwalniamy semafor jeśli pracownik techniczny dalej pracuje
-        semaphore_signal(sem_main_tech);
-        sleep(2);
+        //sleep(1);
     }
 
     // Usuwanie mechanizmów IPC
-    cleanup(data, msgid, shmid, msgid_manager, sem_fan_count, sem_main_tech, sem_stand, sem_fans_waiting);
+    cleanup(data, msgid, shmid, msgid_manager, sem_fan_count, sem_evacuation, sem_entry_paused, sem_stands, sem_fans_waiting);
     printf(WORKER "[TECH_WORKER] Główny pracownik techniczny zakończył działanie" RESET "\n");
     exit(0);
 }
@@ -233,8 +249,9 @@ void run_worker_stand(int stand_id)
     // Klucze IPC
     key_t key_msg = get_key(KEY_PATH, MSG_ID);
     key_t key_shm = get_key(KEY_PATH, SHM_ID);
-    key_t key_sem_stand = get_key(KEY_PATH, SEM_STAND_BASE + stand_id);
+    key_t key_sem_stand = get_key(KEY_PATH, SEM_STAND_BASE);
     key_t key_sem_fans_waiting = get_key(KEY_PATH, SEM_WAITING_FANS);
+    key_t key_fan_count = get_key(KEY_PATH, SEM_FAN_COUNT_ID);
 
     // Kolejka kibiców
     int msgid = create_message_queue(key_msg, 0666);
@@ -251,14 +268,8 @@ void run_worker_stand(int stand_id)
     // Semafor liczby kibiców w kolejce
     int sem_fans_waiting = get_semaphore(key_sem_fans_waiting, 0666);
 
-    // Tablica komunikatów kibica
-    int message_types[] = {JOIN_CONTROL, LET_FAN_GO, AGGRESSIVE_FAN};
-
-    // Liczba komunikatów
-    size_t message_count = sizeof(message_types) / sizeof(message_types[0]);
-
-    // Flaga odebranej wiadomości
-    int message_receive = 0;
+    // Semafor liczby kibiców na stadionie
+    int sem_fan_count = get_semaphore(key_fan_count, 0666);
 
     printf(WORKER "[TECH_WORKER] Pracownik stanowiska %d uruchomiony" RESET "\n", stand_id + 1);
 
@@ -288,7 +299,7 @@ void run_worker_stand(int stand_id)
         {
             printf(WORKER "[TECH_WORKER] Stanowisko %d wstrzymane\n" RESET, stand_id + 1);
             // semaphore_signal(control_sem);
-            sleep(1);
+            // sleep(1);
             continue;
         }
 
@@ -296,7 +307,6 @@ void run_worker_stand(int stand_id)
         if (data->evacuation)
         {
             printf(WORKER "[TECH_WORKER] Stanowisko %d kończy pracę z powodu ewakuacji" RESET "\n", stand_id + 1);
-            // semaphore_signal(control_sem);
             break;
         }
 
@@ -304,7 +314,6 @@ void run_worker_stand(int stand_id)
         if (data->fans_in_stadium >= MAX_FANS)
         {
             printf(WORKER "[TECH_WORKER] Stanowisko %d kończy pracę: stadion pełny" RESET "\n", stand_id + 1);
-            // semaphore_signal(control_sem);
             break;
         }
 
@@ -325,63 +334,65 @@ void run_worker_stand(int stand_id)
         }
 
         // Blokowanie stanowiska
-        semaphore_wait(control_sem);
+        // semaphore_wait(control_sem, stand_id);
 
         // Zapisujemy dane kibica, który chce wejść do kontroli
         stand_fans[stand_fan_id] = message.fData;
 
         // Sprawdzamy drużynę kibica jeśli nie jest pierwszym kibicem zaproszonym do kontroli
-        if (stand_fan_id > 0)
-        {
-            same_team = check_fans_team(stand_fans[stand_fan_id].team, stand_fans, stand_fan_id);
-        }
+        // if (stand_fan_id > 0)
+        // {
+        same_team = check_fans_team(stand_fans[stand_fan_id].team, stand_fans, stand_fan_id);
+        // }
 
-        // Jeśli liczba kibiców do kontroli jest mniejsza od 3 oraz kibic jest 
+        // Jeśli liczba kibiców do kontroli jest mniejsza od 3 oraz kibic jest
         // z tej samej drużyny oraz nie jest VIP
-        if (stand_fan_id < MAX_PEOPLE_PER_STAND && same_team && message.message_type != VIP_ENTER)
+        if (stand_fan_id < MAX_PEOPLE_PER_STAND /*&& same_team*/ && message.message_type != VIP_ENTER)
         {
             // Zwiększamy liczbę kibiców na stanowisku
+            semaphore_wait(sem_fan_count, 0);
             (data->fans_on_stand[stand_id])++;
+            semaphore_signal(sem_fan_count, 0);
 
             // Zwiększamy liczbę kibiców przystępujących do kontroli
             stand_fan_id++;
-            
-            if (data->fans_on_stand[stand_id] < MAX_PEOPLE_PER_STAND)
+
+            if (data->fans_on_stand[stand_id] < MAX_PEOPLE_PER_STAND && get_sem_value(sem_fans_waiting) > MAX_PEOPLE_PER_STAND)
             {
-                if (get_sem_value(sem_fans_waiting) > 0)
-                {
-                    semaphore_signal(control_sem);
-                    continue;
-                }
+                printf("fans_waiting: %d\n", get_sem_value(sem_fans_waiting));
+                // semaphore_signal(control_sem, stand_id);
+                continue;
             }
         }
         // Jeśli kibic jest przeciwnej drużyny i nie jest VIP
-        if (!same_team && message.message_type != VIP_ENTER)
+        /*if (!same_team && message.message_type != VIP_ENTER)
         {
             message.message_type = OTHER_TEAM;
             message.sender = getpid();
             message.fData = stand_fans[stand_fan_id];
-            
+
             // Wysyłamy wiadomość o tym że musi przepuścić kibica
             if (msgsnd(msgid, &message, sizeof(QueueMessage) - sizeof(long), 0) == -1)
             {
                 perror(ERROR "Błąd wysłania wiadomości OTHER_TEAM do kibica" RESET);
-                semaphore_signal(control_sem);
+                // semaphore_signal(control_sem);
             }
             stand_fan_id--;
             // reset_fan_data(&stand_fans[stand_fan_id]);
-        }
+        }*/
         if (message.message_type == VIP_ENTER)
         {
             printf(WORKER "[TECH_WORKER] Kibic %d(VIP) - Wiek=%d, Team=%d, VIP=%d, Dziecko=%d, Poziom agresji=%d wchodzi bez kolejki\n" RESET, stand_fans[stand_fan_id].fan_id, stand_fans[stand_fan_id].age, stand_fans[stand_fan_id].team, stand_fans[stand_fan_id].is_vip, stand_fans[stand_fan_id].is_child, stand_fans[stand_fan_id].aggressive_counter);
 
+            semaphore_wait(sem_fan_count, 0);
             (data->fans_in_stadium) += 1;
+            semaphore_signal(sem_fan_count, 0);
 
             send_controlled_fan_message(data, &msgid, stand_fans, message, &stand_fan_id);
 
             stand_fan_id--;
 
-            semaphore_signal(control_sem);
+            // semaphore_signal(control_sem, stand_id);
             continue;
         }
         if (stand_fan_id > 0)
@@ -389,7 +400,10 @@ void run_worker_stand(int stand_id)
             control_fans(stand_fans, stand_id, &stand_fan_id);
 
             // Zwiększ liczbę kibiców na stadionie
+            semaphore_wait(sem_fan_count, 0);
             (data->fans_in_stadium) += stand_fan_id;
+            semaphore_signal(sem_fan_count, 0);
+
             data->fans_on_stand[stand_id] = 0;
 
             send_controlled_fan_message(data, &msgid, stand_fans, message, &stand_fan_id);
@@ -399,7 +413,7 @@ void run_worker_stand(int stand_id)
         }
 
         // Odblokuj stanowisko
-        semaphore_signal(control_sem);
+        // semaphore_signal(control_sem, stand_id);
         log_file(data);
     }
 
@@ -412,7 +426,7 @@ void control_fans(FanData *fans, int stand_id, int *stand_fan_id)
 {
     // Liczba kontrolowanych kibiców
     printf(WORKER "[TECH_WORKER] Stanowisko %d kontroluje %d kibiców: \n" RESET, stand_id + 1, *stand_fan_id);
-    
+
     // Kontrola kibiców na stanowisku
     for (int i = 0; i < (*stand_fan_id); i++)
     {

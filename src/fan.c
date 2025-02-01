@@ -24,7 +24,7 @@ void run_fan(int id)
     // Klucze IPC
     key_t key_msg = get_key(KEY_PATH, MSG_ID);
     key_t key_shm = get_key(KEY_PATH, SHM_ID);
-    key_t key_sem_fan_count = get_key(KEY_PATH, SEM_FAN_COUNT_ID);
+    key_t key_fan_count = get_key(KEY_PATH, SEM_FAN_COUNT_ID);
     key_t key_sem_fans_waiting = get_key(KEY_PATH, SEM_WAITING_FANS);
 
     // Kolejka kibiców
@@ -36,7 +36,7 @@ void run_fan(int id)
     }
 
     // Semafor liczby kibiców na stadionie
-    int sem_fan_count = get_semaphore(key_sem_fan_count, 0666);
+    int sem_fan_count = get_semaphore(key_fan_count, 0666);
 
     // Semafor liczby kibiców w kolejce
     int sem_fans_waiting = get_semaphore(key_sem_fans_waiting, 0666);
@@ -58,29 +58,36 @@ void run_fan(int id)
 
     while (1)
     {
-        // Zablokowanie semafora liczby kibiców
-        semaphore_wait(sem_fan_count);
+        int fans_waiting = semctl(sem_fans_waiting, 0, GETVAL);
+
+        if (fans_waiting == -1)
+        {
+            printf(FAN "[FAN] Kibic %d nie może dołączyć do kolejki: Stadion zamknięty\n" RESET, id);
+            detach_shared_memory(data);
+            exit(0);
+        }
 
         // Sprawdzenie czy jest ewakuacja
         if (data->evacuation)
         {
             printf(FAN "[FAN] Kibic %d nie może dołączyć do kolejki: Rozpoczęto ewakuację\n" RESET, id);
-            semaphore_signal(sem_fan_count); // Zwolnienie semafora
-            detach_shared_memory(data);      // Odłączenie pamięci dzielonej
+            detach_shared_memory(data); // Odłączenie pamięci dzielonej
             exit(0);
         }
 
         // Sprawdzenie limitu kibiców
-        if (get_sem_value(sem_fans_waiting) >= MAX_FANS)
+        if (fans_waiting == 0)
         {
             printf(FAN "[FAN] Kibic %d nie może dołączyc do kolejki: Limit kibiców osiągnięty" RESET "\n", id);
-            semaphore_signal(sem_fan_count); // Zwolnienie semafora
-            detach_shared_memory(data);      // Odłączenie pamięci dzielonej
+            detach_shared_memory(data); // Odłączenie pamięci dzielonej
             exit(0);
         }
 
-        // Zwolnienie semafora
-        semaphore_signal(sem_fan_count);
+        // Zapewnienie odpowiedniej kolejności wchodzenia kibiców
+        // if (fan.fan_id + fans_waiting != MAX_FANS + 1)
+        // {
+        //     continue;
+        // }
 
         // Wysłanie komunikatu o dołączeniu do kolejki
         if (msgsnd(msgid, &message, sizeof(QueueMessage) - sizeof(long), 0) != -1)
@@ -88,7 +95,7 @@ void run_fan(int id)
             switch (message.message_type)
             {
             case JOIN_CONTROL: // Dołączenie do kolejki do kontroli
-                semaphore_signal(sem_fans_waiting);
+                semaphore_wait(sem_fans_waiting, 0);
                 printf(FAN "[FAN] Kibic %d dołączył do kolejki: Wiek:%d, Team=%d, VIP=%d, Dziecko=%d, Poziom agresji=%d\n" RESET,
                        fan.fan_id, fan.age, fan.team, fan.is_vip, fan.is_child, fan.aggressive_counter);
                 break;
@@ -132,7 +139,6 @@ void run_fan(int id)
             if ((msgrcv(msgid, &message, sizeof(QueueMessage) - sizeof(long), getpid(), IPC_NOWAIT) != -1))
             {
                 printf(FAN "[FAN] Kibic %d wszedł na stadion\n" RESET, id);
-                semaphore_wait(sem_fans_waiting);
                 break;
             }
         }

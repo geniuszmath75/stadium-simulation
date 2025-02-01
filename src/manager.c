@@ -3,6 +3,7 @@
 #include "manager.h"
 #include "ipc_utils.h"
 #include "structures.h"
+#include <math.h>
 
 // Wysłanie sygnału do pracownika technicznego
 void send_signal_to_workers(int signal, pid_t main_tech_id)
@@ -27,16 +28,16 @@ void run_manager(pid_t main_tech_id)
     printf(MANAGER "[MANAGER] Kierownik uruchomiony.\n" RESET);
 
     // Czas oczekiwania na wysłanie sygnału
-    int wait_for_signal = rand() % MAX_FANS + 1;
+    int wait_for_signal = (int)ceil(log2((double)MAX_FANS));
 
     // Losowo wybrany sygnał: 0 - ewakuacja, 1 - wtrzymanie/wznowienie kontroli
-    int signal_type = random() % 2;
+    int signal_type = -1;
     while (1)
     {
         sleep(wait_for_signal);
         if (signal_type == 0)
             send_signal_to_workers(SIGTERM, main_tech_id);
-        else
+        if(signal_type == 1)
         {
             send_signal_to_workers(SIGUSR1, main_tech_id);
             sleep(5); // Wstrzymanie kontroli na 5s
@@ -50,8 +51,13 @@ void run_manager(pid_t main_tech_id)
             if (msgrcv(msgid_manager, &msg, sizeof(QueueMessage) - sizeof(long), EVACUATION_COMPLETE, 0) != -1)
             {
                 printf(MANAGER "[MANAGER] Otrzymano komunikat o zakończeniu ewakuacji\n" RESET);
-                break;
             }
+            msg.message_type = FINISH_WORKER;
+            if (msgsnd(msgid_manager, &msg, sizeof(QueueMessage) - sizeof(long), 0) == -1)
+            {
+                printf(MANAGER "[MANAGER] Błąd wysłania wiadomości FINISH_WORKER\n" RESET);
+            }
+            break;
         }
 
         // Sprawdzanie, czy wszystkie procesy się zakończyły
