@@ -98,7 +98,7 @@ int main()
             run_fan(i + 1);
             exit(0);
         }
-        // sleep(1);
+        sleep((rand() % 3) + 1);
     }
 
     // Czekanie na zakończenie procesów
@@ -112,18 +112,6 @@ int main()
     {
         wait(NULL);
     }
-
-    // while (waitpid(-1, NULL, WNOHANG) > 0)
-
-    //     if (pthread_create(&wait_process, NULL, wait_function, NULL) != 0)
-    //     {
-    //         perror(ERROR "Błąd tworzenia wątku czyszczącego" RESET);
-    //         exit(1);
-    //     }
-
-    // pthread_join(wait_process, NULL);
-
-    //  while (wait(NULL) > 0);
 
     return 0;
 }

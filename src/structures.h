@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#define MAX_FANS 100
+#define MAX_FANS 30
 #define MAX_STANDS 3
 #define MAX_PEOPLE_PER_STAND 3
 #define VIP_THRESHOLD 0.005 // VIPs: < 0.5% of total fans
