@@ -355,9 +355,6 @@ void run_worker_stand(int stand_id)
                 // Zwiększamy liczbę kibiców przystępujących do kontroli
                 stand_fan_id++;
 
-                // Suma wszystkich kibiców na czekających na kontrolę(nie mylić z kolejką kibiców)
-                int fans_in_stands = fans_sum_on_stands(data);
-
                 // Jeśli możemy dalej wziąść kogoś do kontroli to czekamy na kolejnego kibica
                 if (data->fans_on_stand[stand_id] < MAX_PEOPLE_PER_STAND)
                 {
@@ -448,13 +445,4 @@ bool check_fans_team(Team checking_team, FanData *stand_fans, int fan_idx)
     {
         return false;
     }
-}
-
-int fans_sum_on_stands(SharedData *data)
-{
-    int sum = 0;
-    sum += data->fans_on_stand[0];
-    sum += data->fans_on_stand[1];
-    sum += data->fans_on_stand[2];
-    return sum;
 }

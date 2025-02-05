@@ -22,7 +22,6 @@ int create_shared_memory(key_t key, size_t size, int flags);
 void *attach_shared_memory(int shmid);
 void detach_shared_memory(void *addr);
 void remove_shared_memory(int shmid);
-int check_shared_memory_attachments(int shmid);
 
 // Funkcje semaforów
 int create_semaphore(key_t key, int sem_number, int initial_value, int flags);

@@ -41,18 +41,6 @@ void remove_shared_memory(int shmid) {
     }
 }
 
-int check_shared_memory_attachments(int shmid)
-{
-    struct shmid_ds shm_info;
-
-    if(shmctl(shmid, IPC_STAT, &shm_info) == -1)
-    {
-        perror(ERROR "Nie można pobrać danych pamięci dzielonej" RESET);
-        return 1;
-    }
-    return shm_info.shm_nattch;
-}
-
 int create_semaphore(key_t key, int sem_number, int initial_value, int flags) {
     int semid = semget(key, sem_number, flags);
     if (semid == -1) {
