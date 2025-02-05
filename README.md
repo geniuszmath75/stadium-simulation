@@ -18,10 +18,9 @@ Napisz odpowiedni program kibica, pracownika technicznego i kierownika stadionu.
 ## 2. Opis testów:
 
 * **Test_1** - sprawdzenie, czy program odrzuca nadmiar kibiców (Liczba kibiców <= K).
-* **Test_2** - symulacja sytuacji, gdy stanowiska przestają działać (test semaforów).
-* **Test_3** - sprawdzenie poprawności odbioru poleceń od kierownika przez pracownika technicznego (obsługa sygnałów).
-* **Test_4** - sprawdzenie, czy osoby VIP są wpuszczane bez kolejki, a dzieci z opiekunami.
-* **Test_5** - sprawdzenie, czy kibic czekający w kolejce przepuści max. 5 osób
+* **Test_2** - sprawdzenie, czy osoby VIP są wpuszczane bez kolejki.
+* **Test_3** - sprawdzenie, czy kibic czekający w kolejce przepuści max. 5 osób
+* **Test_4** - sprawdzenie poprawności odbioru poleceń od kierownika przez pracownika technicznego (obsługa sygnałów).
 
 ## 3. Link do repozytorium na GitHub
 https://github.com/geniuszmath75/stadium-simulation

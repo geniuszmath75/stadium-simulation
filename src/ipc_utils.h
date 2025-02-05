@@ -1,6 +1,7 @@
 #ifndef IPC_UTILS_H
 #define IPC_UTILS_H
 
+#include "structures.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -21,6 +22,7 @@ int create_shared_memory(key_t key, size_t size, int flags);
 void *attach_shared_memory(int shmid);
 void detach_shared_memory(void *addr);
 void remove_shared_memory(int shmid);
+int check_shared_memory_attachments(int shmid);
 
 // Funkcje semaforów
 int create_semaphore(key_t key, int sem_number, int initial_value, int flags);
@@ -33,5 +35,8 @@ void remove_semaphore(int semid);
 // Funkcje kolejki komunikatów(kolejka do kontroli)
 int create_message_queue(key_t key, int flags);
 void remove_message_queue(int msgid);
+
+// Pliki logów
+void log_file(int fan_id, const char* file_name, const char* mode);
 
 #endif // IPC_UTILS_H

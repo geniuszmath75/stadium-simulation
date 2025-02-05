@@ -5,10 +5,10 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#define MAX_FANS 30
+#define MAX_FANS 50
 #define MAX_STANDS 3
 #define MAX_PEOPLE_PER_STAND 3
-#define VIP_THRESHOLD 0.005 // VIPs: < 0.5% of total fans
+#define VIP_THRESHOLD 0.005 // VIPs: < 0.5% of total fans, 1 - pojawiają się sami kibice VIP
 
 // Ścieżka oraz ID dla mechanizmów IPC
 #define KEY_PATH "/tmp"
@@ -19,7 +19,6 @@
 #define SEM_FAN_COUNT_ID 'E'
 #define SEM_WAITING_FANS 'F'
 #define MSG_MANAGER_ID 'G'
-#define SEM_STAND_BASE 'H'
 
 // Kolory dla komunikatów w konsoli
 #define RESET "\033[0m"
@@ -28,7 +27,9 @@
 #define FAN "\033[1;32m"
 #define MANAGER "\033[1;35m"
 
-#define TEST_FAN_LIMIT 0
+#define TEST_FAN_LIMIT 0 // 0 - BRAK, 1 - podajemy liczbę kibiców do przybycia (większą od MAX_FANS)
+#define TEST_AGGRESSIVE_FANS 0 // 0 - BRAK, 1 - pojawiają się sami agresywni kibice
+#define TEST_SIGNAL_HANDLING 0 // 0 - EWAKUACJA, 1 - WSTRZYMANIE/WZNOWIENIE KONTROLI
 
 // Drużyny
 typedef enum
@@ -44,12 +45,12 @@ typedef enum
     VIP_ENTER = 1,
     JOIN_CONTROL = 2,
     AGGRESSIVE_FAN = 3,
-    OTHER_TEAM = 4,
-    LET_FAN_GO = 5,
+    LET_FAN_GO = 4,
+    OTHER_TEAM = 5,
     JOIN_WITH_CHILDREN = 6,
-    ENTER_WITH_CHILDREN = 8,
-    EVACUATION_COMPLETE = 9,
-    FINISH_WORKER = 10
+    ENTER_WITH_CHILDREN = 7,
+    EVACUATION_COMPLETE = 8,
+    FINISH_WORKER = 9
 } MessageTypes;
 
 // Dane kibica

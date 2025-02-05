@@ -1,35 +1,39 @@
-#include <wait.h>
 #include "ipc_utils.h"
 #include "worker.h"
 #include "manager.h"
 #include "fan.h"
 #include "structures.h"
-#include <signal.h>
 #include <pthread.h>
+#include <wait.h>
 
 void *wait_function(void *arg)
 {
+    pid_t pid = *(pid_t *)arg;
+    free(arg);
     int status;
-    pid_t pid;
 
     while (1)
     {
-        pid = waitpid(-1, &status, WNOHANG);
-        if (pid > 0)
-        {
-            printf("Process %d finished.\n", pid);
-        }
-        else if (pid == 0)
-        {
-            sleep(1);
-        }
-        else if (pid == -1 && errno == ECHILD)
+        pid_t result = waitpid(pid, &status, 0); // Czekaj na konkretny proces
+        if (result > 0)
         {
             break;
         }
-        else
+        else if (result == -1)
         {
-            perror("Błąd w waitpid");
+            if (errno == ECHILD)
+            {
+                break;
+            }
+            else if (errno == EINTR)
+            {
+                continue; // Przerwane przez sygnał, spróbuj ponownie
+            }
+            else
+            {
+                perror(ERROR "Błąd w waitpid\n" RESET);
+                break;
+            }
         }
     }
     return NULL;
@@ -37,7 +41,6 @@ void *wait_function(void *arg)
 
 int main()
 {
-    pthread_t wait_process;
     // PIDy pracowników technicznych, kierownika oraz kibiców
     pid_t worker_main_pid, worker_stand_pid[MAX_STANDS], manager_pid, fan_pid;
     // Liczba kibiców którzy chcą wejść na stadion
@@ -47,6 +50,7 @@ int main()
     // Dopóki wprowadzona liczba fanów będzie mniejsza od 0...
     if (TEST_FAN_LIMIT)
     {
+        number_of_fans = 0;
         while (number_of_fans < 1)
         {
             printf("Podaj liczbę kibiców chcących wejść na stadion: ");
@@ -62,6 +66,8 @@ int main()
             }
         }
     }
+
+    pthread_t wait_process[number_of_fans];
 
     // Uruchomienie głównego pracownika technicznego
     if ((worker_main_pid = fork()) == 0)
@@ -92,13 +98,30 @@ int main()
 
     // Uruchomienie kibiców
     for (int i = 0; i < number_of_fans; i++)
-    { // Liczba kibiców
-        if ((fan_pid = fork()) == 0)
+    {
+        fan_pid = fork();
+        if (fan_pid == 0)
         {
             run_fan(i + 1);
             exit(0);
         }
-        sleep((rand() % 3) + 1);
+        else if (fan_pid > 0)
+        {
+            pid_t *ptr_pid = malloc(sizeof(pid_t));
+            if(ptr_pid == NULL)
+            {
+                perror(ERROR "Błąd alokacji pamięci\n" RESET);
+                exit(1);
+            }
+            *ptr_pid = fan_pid;
+
+            if(pthread_create(&wait_process[i], NULL, wait_function, ptr_pid) == -1)
+            {
+                perror(ERROR "Błąd tworzenia wątku" RESET);
+                free(ptr_pid);
+            }
+        }
+        sleep(1);
     }
 
     // Czekanie na zakończenie procesów
@@ -110,7 +133,8 @@ int main()
     waitpid(manager_pid, NULL, 0);
     for (int i = 0; i < number_of_fans; i++)
     {
-        wait(NULL);
+        // wait(NULL);
+        pthread_join(wait_process[i], NULL);
     }
 
     return 0;

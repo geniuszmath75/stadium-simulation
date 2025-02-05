@@ -1,5 +1,4 @@
 #include "ipc_utils.h"
-#include "structures.h"
 
 key_t get_key(const char *path, int id) {
     key_t key = ftok(path, id);
@@ -37,9 +36,21 @@ void detach_shared_memory(void *addr) {
 
 void remove_shared_memory(int shmid) {
     if (shmctl(shmid, IPC_RMID, NULL) == -1) {
-        perror(ERROR "Nie można usunąć pamięci dzielonej");
+        perror(ERROR "Nie można usunąć pamięci dzielonej" RESET);
         exit(1);
     }
+}
+
+int check_shared_memory_attachments(int shmid)
+{
+    struct shmid_ds shm_info;
+
+    if(shmctl(shmid, IPC_STAT, &shm_info) == -1)
+    {
+        perror(ERROR "Nie można pobrać danych pamięci dzielonej" RESET);
+        return 1;
+    }
+    return shm_info.shm_nattch;
 }
 
 int create_semaphore(key_t key, int sem_number, int initial_value, int flags) {
@@ -115,4 +126,37 @@ void remove_message_queue(int msgid) {
         perror(ERROR "Nie można usunąć kolejki komunikatów");
         exit(1);
     }
+}
+
+void log_file(int fan_id, const char *file_name, const char *mode)
+{
+    FILE *logs = fopen(file_name, mode);
+    if (logs == NULL)
+    {
+        perror(ERROR "Nie można otworzyć pliku\n" RESET);
+        exit(1);
+    }
+    char text[128] = {0};
+    char buffer[32];
+
+    if (strcmp(file_name, "passed_fans") == 0)
+    {
+        strcat(text, "Kibic(");
+        sprintf(buffer, "%d", fan_id);
+        strcat(text, buffer);
+        strcat(text, ") przepuszczony: OK");
+    }
+    if (strcmp(file_name, "entered_fans") == 0)
+    {
+        strcat(text, "Kibic(");
+        sprintf(buffer, "%d", fan_id);
+        strcat(text, buffer);
+        strcat(text, ") wszedł: OK");
+    }
+
+    strcat(text, "\n");
+
+    fprintf(logs, "%s", text);
+
+    fclose(logs);
 }

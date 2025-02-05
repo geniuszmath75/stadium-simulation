@@ -4,8 +4,8 @@
             "name": "Run program",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${cwd}/src/tech_worker && ${cwd}/src/fan && ${cwd}/src/stadium_manager",
-            "args": ["&"],
+            "program": "${cwd}/bin/stadium",
+            "args": [],
             "stopAtEntry": false,
             "cwd": "${cwd}",
             "environment": [],
@@ -18,7 +18,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build program"
+            "preLaunchTask": "Build stadium"
         },
     ],
     "version": "2.0.0"
