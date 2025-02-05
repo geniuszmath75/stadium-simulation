@@ -29,7 +29,7 @@
 
 #define TEST_FAN_LIMIT 0 // 0 - BRAK, 1 - podajemy liczbę kibiców do przybycia (większą od MAX_FANS)
 #define TEST_AGGRESSIVE_FANS 0 // 0 - BRAK, 1 - pojawiają się sami agresywni kibice
-#define TEST_SIGNAL_HANDLING 0 // 0 - EWAKUACJA, 1 - WSTRZYMANIE/WZNOWIENIE KONTROLI
+#define TEST_SIGNAL_HANDLING -1 // 0 - EWAKUACJA, 1 - WSTRZYMANIE/WZNOWIENIE KONTROLI -1 - testowanie bez sleep
 
 // Drużyny
 typedef enum

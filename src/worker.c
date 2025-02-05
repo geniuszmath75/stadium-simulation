@@ -66,7 +66,7 @@ void handle_signal(int signal)
         printf(WORKER "[TECH_WORKER(Main)] Wznowiono wpuszczanie kibiców\n" RESET);
         break;
     case SIGTERM: // Rozpoczęcie ewakuacji
-        semaphore_signal(sem_evacuation, 0);
+        semaphore_wait(sem_evacuation, 0);
         data->evacuation = true;
         semaphore_signal(sem_evacuation, 0);
         printf(WORKER "[TECH_WORKER(Main)] Rozpoczęto ewakuację\n" RESET);
@@ -404,7 +404,7 @@ void send_controlled_fan_message(SharedData *data, int *msgid, FanData *fans, Qu
     // Wysłanie wiadomośći do VIPa
     if (message.message_type == VIP_ENTER)
     {
-        log_file(message.fData.fan_id, "passed_fans", "a+");
+        //log_file(message.fData.fan_id, "passed_fans", "a+");
         message.message_type = message.fData.fan_pid;
         message.sender = getpid();
         if (msgsnd(*msgid, &message, sizeof(QueueMessage) - sizeof(long), 0) == -1)
@@ -418,7 +418,7 @@ void send_controlled_fan_message(SharedData *data, int *msgid, FanData *fans, Qu
         // Wysłanie wiadomości do zwykłych kibiców
         for (int i = 0; i < (*stand_fan_id); i++)
         {
-            log_file(fans[i].fan_id, "passed_fans", "a+");
+            //log_file(fans[i].fan_id, "passed_fans", "a+");
             message.message_type = fans[i].fan_pid;
             message.sender = getpid();
             message.fData = fans[i];

@@ -133,7 +133,6 @@ int main()
     waitpid(manager_pid, NULL, 0);
     for (int i = 0; i < number_of_fans; i++)
     {
-        // wait(NULL);
         pthread_join(wait_process[i], NULL);
     }
 

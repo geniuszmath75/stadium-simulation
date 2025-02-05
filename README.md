@@ -22,5 +22,26 @@ Napisz odpowiedni program kibica, pracownika technicznego i kierownika stadionu.
 * **Test_3** - sprawdzenie, czy kibic czekający w kolejce przepuści max. 5 osób
 * **Test_4** - sprawdzenie poprawności odbioru poleceń od kierownika przez pracownika technicznego (obsługa sygnałów).
 
-## 3. Link do repozytorium na GitHub
+## 3. Kompilacja i uruchomienie:
+
+```sh
+    cd bin/
+```
+```sh
+    gcc -o ./stadium  ../src/ipc_utils.c ../src/fan.c ../src/worker.c ../src/manager.c ../src/main.c -lpthread
+```
+
+```sh
+    ./stadium
+```
+
+Jeśli występuje jakiś problem podczas pierwszego uruchomienia należy wykonać komendę
+
+```sh
+    ipcrm -a
+```
+
+i uruchomić ponownie.
+
+## 4. Link do repozytorium na GitHub
 https://github.com/geniuszmath75/stadium-simulation

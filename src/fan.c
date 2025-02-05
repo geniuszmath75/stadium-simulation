@@ -156,7 +156,7 @@ void run_fan(int id)
         // Jeśli typ komunikatu to PID kibica to przerwij pętlę(kibic wpuszczony na stadion)
         if (message.message_type == fan.fan_pid)
         {
-            log_file(message.fData.fan_id, "entered_fans", "a+");
+            //log_file(message.fData.fan_id, "entered_fans", "a+");
 
             // Zwiększanie liczby kibiców na stadionie
             semaphore_wait(sem_fan_count, 0);
